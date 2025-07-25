@@ -1,0 +1,26 @@
+coverage
+dist
+node_modules
+npm-debug.log
+yarn-error.log
+yarn.lock
+package-lock.json
+.cspellcache
+
+# ide
+.idea
+.claude
+.roo
+
+# Mac General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# umi
+.umi
+.umi-production
+
+# jslingui
+src/locales/_build
+# src/locales/**/*.js
