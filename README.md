@@ -534,31 +534,161 @@ npm run calculator-unified
 
 ### 3. Docker部署
 
-#### HTTP模式Dockerfile
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY dist/ ./dist/
-COPY public/ ./public/
+#### 🐳 使用Docker Compose（推荐方式）
 
-# 设置环境变量
-ENV TRANSPORT=http
-ENV PORT=3001
-ENV NODE_ENV=production
+项目已配置了完整的Docker Compose环境，支持多种运行模式：
 
-EXPOSE 3001
-CMD ["node", "dist/calculator-server-unified.js"]
+##### 构建所有镜像
+```bash
+# 构建所有服务镜像
+docker-compose build
+
+# 或只构建特定服务
+docker-compose build calculator-server
+docker-compose build file-manager-server
 ```
 
-#### 构建和运行
+##### 启动服务
 ```bash
-# 构建镜像
-docker build -t mcp-http-server .
+# 启动计算器服务器（端口3001）
+docker-compose up calculator-server
 
-# 运行容器
-docker run -p 3001:3001 -e ALLOWED_ORIGINS="https://yourdomain.com" mcp-http-server
+# 启动文件管理器服务器（端口3002）
+docker-compose up file-manager-server
+
+# 同时启动所有服务
+docker-compose up
+
+# 后台运行
+docker-compose up -d
+```
+
+##### 开发环境
+```bash
+# 启动开发环境（支持热重载）
+docker-compose up dev
+
+# 进入开发容器调试
+docker-compose exec dev sh
+```
+
+##### STDIO模式调试
+```bash
+# 启动计算器STDIO模式容器
+docker-compose up calculator-stdio
+
+# 进入容器进行STDIO调试
+docker exec -it mcp-calculator-stdio sh
+```
+
+#### 🛠️ 手动Docker构建与运行
+
+##### 构建镜像
+```bash
+# 构建基础镜像
+docker build -t mcp-typescript-tutorial .
+
+# 构建并指定标签
+docker build -t mcp-typescript-tutorial:latest -t mcp-typescript-tutorial:v1.0 .
+```
+
+##### 运行容器
+```bash
+# 运行计算器服务器（HTTP模式）
+docker run -p 3001:3001 \
+  -e SERVICE=calculator \
+  -e TRANSPORT=http \
+  -e PORT=3001 \
+  -e ALLOWED_ORIGINS="http://localhost:3000" \
+  mcp-typescript-tutorial
+
+# 运行文件管理器服务器（HTTP模式）
+docker run -p 3002:3002 \
+  -e SERVICE=file-manager \
+  -e TRANSPORT=http \
+  -e PORT=3002 \
+  -v $(pwd)/data:/app/data \
+  mcp-typescript-tutorial
+
+# 运行STDIO模式（交互式）
+docker run -it --rm \
+  -e TRANSPORT=stdio \
+  mcp-typescript-tutorial
+```
+
+##### 生产环境部署
+```bash
+# 生产环境运行（带安全配置）
+docker run -d --name mcp-prod \
+  -p 3001:3001 \
+  -e NODE_ENV=production \
+  -e TRANSPORT=http \
+  -e PORT=3001 \
+  -e ALLOWED_ORIGINS="https://yourdomain.com" \
+  --restart unless-stopped \
+  mcp-typescript-tutorial
+```
+
+#### 📋 Docker Compose服务说明
+
+| 服务名称 | 端口 | 描述 | 使用场景 |
+|---------|------|------|----------|
+| `calculator-server` | 3001 | 计算器HTTP服务器 | 生产环境 |
+| `file-manager-server` | 3002 | 文件管理器HTTP服务器 | 生产环境 |
+| `calculator-stdio` | - | 计算器STDIO服务器 | 调试/集成 |
+| `dev` | 3003 | 开发环境 | 开发调试 |
+| `nginx` | 80/443 | 反向代理 | 生产环境负载均衡 |
+
+#### 🔧 Docker常用命令
+
+```bash
+# 查看运行状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f calculator-server
+docker-compose logs -f file-manager-server
+
+# 停止服务
+docker-compose down
+
+# 停止并删除容器和镜像
+docker-compose down --rmi all --volumes
+
+# 进入运行中的容器
+docker-compose exec calculator-server sh
+docker-compose exec file-manager-server sh
+
+# 清理无用镜像
+docker image prune -f
+```
+
+#### 📊 性能优化配置
+
+##### 资源限制
+```yaml
+# docker-compose.override.yml
+version: '3.8'
+services:
+  calculator-server:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+```
+
+##### 健康检查
+```bash
+# 检查服务健康状态
+docker-compose ps
+
+# 手动健康检查
+curl -f http://localhost:3001/mcp
+curl -f http://localhost:3002/mcp
 ```
 
 ### 4. 使用npx运行
@@ -575,6 +705,72 @@ TRANSPORT=http npx tsx src/calculator-server-unified.ts
 
 # 带参数运行
 TRANSPORT=http PORT=3001 npx tsx src/calculator-server-unified.ts
+```
+
+## 🐳 Docker部署常见问题
+
+### Docker相关配置说明
+
+#### 环境变量详解
+| 变量名 | 默认值 | 说明 | 示例 |
+|--------|--------|------|------|
+| `SERVICE` | - | 指定服务类型 | `calculator`, `file-manager` |
+| `TRANSPORT` | `stdio` | 传输模式 | `stdio`, `http` |
+| `PORT` | `3001` | HTTP端口 | `3001`, `3002` |
+| `NODE_ENV` | `production` | 运行环境 | `development`, `production` |
+| `ALLOWED_ORIGINS` | `http://localhost:3000` | CORS白名单 | `https://yourdomain.com` |
+
+#### 数据持久化
+```bash
+# 文件管理器需要挂载数据目录
+docker-compose up file-manager-server
+# 会自动挂载 ./data 目录到容器内 /app/data
+```
+
+#### 网络配置
+```bash
+# 创建自定义网络（用于容器间通信）
+docker network create mcp-network
+
+# 在自定义网络中运行
+docker run -d --name mcp-calculator \
+  --network mcp-network \
+  -p 3001:3001 \
+  mcp-typescript-tutorial
+```
+
+#### 日志管理
+```bash
+# 查看实时日志
+docker-compose logs -f
+
+# 查看特定服务日志
+docker-compose logs -f calculator-server
+
+# 导出日志到文件
+docker-compose logs > mcp-logs.txt
+```
+
+#### 健康监控
+```bash
+# 检查服务状态
+watch -n 5 'curl -f http://localhost:3001/mcp && echo "Calculator OK" || echo "Calculator DOWN"'
+
+# 使用docker health check
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Health}}"
+```
+
+#### 安全最佳实践
+```bash
+# 使用非root用户运行（已在Dockerfile中配置）
+USER mcp
+
+# 限制容器权限
+docker run --read-only --tmpfs /tmp --tmpfs /app/logs mcp-typescript-tutorial
+
+# 使用安全扫描
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd):/tmp aquasec/trivy image mcp-typescript-tutorial
 ```
 
 ## 🎯 实战案例
@@ -710,7 +906,6 @@ PORT=3002 npm run file-manager-http
 - `npm run file-manager-unified` - 启动文件管理器统一服务器
 
 ### 🧪 测试工具
-- `public/index.html` - 浏览器测试页面
 - `HTTP_SERVER_GUIDE.md` - HTTP模式详细指南
 
 ### 🎯 浏览器集成示例

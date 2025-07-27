@@ -11,6 +11,7 @@ package-lock.json
 .idea
 .claude
 .roo
+CLAUDE.md
 
 # Mac General
 .DS_Store

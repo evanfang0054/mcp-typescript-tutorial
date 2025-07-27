@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # 计算器服务器
+  calculator-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcp-calculator
+    ports:
+      - "6001:6001"
+    environment:
+      - SERVICE=calculator
+      - TRANSPORT=http
+      - PORT=6001
+      - NODE_ENV=development
+      - ALLOWED_ORIGINS=*
+      - ALLOWED_HOSTS=*
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6001/mcp"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 文件管理器服务器
+  file-manager-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcp-file-manager
+    ports:
+      - "6002:6002"
+    environment:
+      - SERVICE=file-manager
+      - TRANSPORT=http
+      - PORT=6002
+      - NODE_ENV=development
+      - ALLOWED_ORIGINS=*
+      - ALLOWED_HOSTS=*
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data  # 挂载本地数据目录
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6002/mcp"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
